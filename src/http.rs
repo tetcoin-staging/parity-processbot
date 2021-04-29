@@ -278,6 +278,23 @@ impl Client {
 			.context(error::Http)
 	}
 
+	/// Patch `body` GitHub to `url` using JWT authenication.
+	pub async fn jwt_patch<T>(
+		&self,
+		url: impl IntoUrl,
+		body: &impl serde::Serialize,
+	) -> Result<T>
+	where
+		T: serde::de::DeserializeOwned,
+	{
+		log::debug!("jwt_patch");
+		self.jwt_execute(self.client.patch(url).json(body))
+			.await?
+			.json::<T>()
+			.await
+			.context(error::Http)
+	}
+
 	/// Get a single entry from a resource in GitHub.
 	pub async fn get<'b, I, T>(&self, url: I) -> Result<T>
 	where

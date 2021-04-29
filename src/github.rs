@@ -21,6 +21,33 @@ pub struct PullRequest {
 	pub repository: Option<Repository>,
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TreeObject<'a> {
+	pub path: &'a str,
+	pub content: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreatedTree {
+	pub sha: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreatedCommitPayload<'a> {
+	pub message: &'a str,
+	pub tree: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreatedCommit {
+	pub sha: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UpdateRefPayload {
+	pub sha: String,
+}
+
 impl HasIssueDetails for PullRequest {
 	fn get_issue_details(&self) -> Option<(String, String, i64)> {
 		if let Some(Repository {

@@ -1,6 +1,8 @@
 use regex::RegexBuilder;
 use rocksdb::DB;
 use snafu::ResultExt;
+use std::fs;
+use std::io;
 use std::path::Path;
 
 use crate::{
@@ -122,6 +124,20 @@ async fn update_companion_repository(
 	)
 	.await?;
 
+	// Record the sha before performing any code updates
+	let sha_before_update_output = run_cmd_with_output(
+		"git",
+		&["rev-parse", "HEAD"],
+		&repo_dir,
+		CommandMessage::Configured(CommandMessageConfiguration {
+			secrets_to_hide,
+			are_errors_silenced: false,
+		}),
+	)
+	.await?;
+	let sha_before_update =
+		String::from_utf8_lossy(&(&sha_before_update_output).stdout[..]);
+
 	let owner_remote = "origin";
 	let owner_branch = "master";
 	let owner_remote_branch = format!("{}/{}", owner_remote, owner_branch);
@@ -174,12 +190,9 @@ async fn update_companion_repository(
 		}),
 	)
 	.await?;
-
-	// Check if `cargo update` resulted in any changes. If the master merge commit already had the
-	// latest lockfile then no changes might have been made.
-	let changes_after_update_output = run_cmd_with_output(
+	run_cmd(
 		"git",
-		&["status", "--short"],
+		&["commit", "-am", "update Substrate"],
 		&repo_dir,
 		CommandMessage::Configured(CommandMessageConfiguration {
 			secrets_to_hide,
@@ -187,13 +200,26 @@ async fn update_companion_repository(
 		}),
 	)
 	.await?;
-	if !String::from_utf8_lossy(&(&changes_after_update_output).stdout[..])
-		.trim()
-		.is_empty()
-	{
+
+	// Check if any files have changed by the previous commands; if so, push the changes
+	let changed_files_output = run_cmd_with_output(
+		"git",
+		&["diff", "--name-only", &sha_before_update],
+		&repo_dir,
+		CommandMessage::Configured(CommandMessageConfiguration {
+			secrets_to_hide,
+			are_errors_silenced: false,
+		}),
+	)
+	.await?;
+	let changed_files =
+		String::from_utf8_lossy(&(&sha_before_update_output).stdout[..]);
+	let changed_files = changed_files.trim().split('\n').collect::<Vec<&str>>();
+
+	let updated_sha = if changed_files.is_empty() {
 		run_cmd(
 			"git",
-			&["commit", "-am", "update Substrate"],
+			&["reset", "--hard", &sha_before_update],
 			&repo_dir,
 			CommandMessage::Configured(CommandMessageConfiguration {
 				secrets_to_hide,
@@ -201,37 +227,67 @@ async fn update_companion_repository(
 			}),
 		)
 		.await?;
-	}
 
-	run_cmd(
-		"git",
-		&["push", contributor, contributor_branch],
-		&repo_dir,
-		CommandMessage::Configured(CommandMessageConfiguration {
-			secrets_to_hide,
-			are_errors_silenced: false,
-		}),
-	)
-	.await?;
+		sha_before_update.to_string()
+	} else {
+		// Push the changes through the Github API so that commits are verified
 
-	log::info!(
-		"Getting the head SHA after a companion update in {}",
-		&contributor_remote_branch
-	);
-	let updated_sha_output = run_cmd_with_output(
-		"git",
-		&["rev-parse", "HEAD"],
-		&repo_dir,
-		CommandMessage::Configured(CommandMessageConfiguration {
-			secrets_to_hide,
-			are_errors_silenced: false,
-		}),
-	)
-	.await?;
-	let updated_sha = String::from_utf8(updated_sha_output.stdout)
-		.context(Utf8)?
-		.trim()
-		.to_string();
+		let created_tree: CreatedTree = github_bot
+			.client
+			.jwt_post(
+				&format!(
+					"{}/repos/{}/{}/git/trees",
+					crate::github_bot::GithubBot::BASE_URL,
+					owner_repo,
+					owner_branch,
+				),
+				&serde_json::json!(changed_files
+					.iter()
+					.map(|path| {
+						Ok(TreeObject {
+							path,
+							content: fs::read_to_string(path)?,
+						})
+					})
+					.collect::<Result<Vec<TreeObject>, io::Error>>()
+					.context(StdIO)?),
+			)
+			.await?;
+
+		let created_commit: CreatedCommit = github_bot
+			.client
+			.jwt_post(
+				&format!(
+					"{}/repos/{}/{}/git/commits",
+					crate::github_bot::GithubBot::BASE_URL,
+					owner_repo,
+					owner_branch,
+				),
+				&serde_json::json!(CreatedCommitPayload {
+					message: "merge master branch and update sp-io",
+					tree: created_tree.sha
+				}),
+			)
+			.await?;
+
+		github_bot
+			.client
+			.jwt_patch(
+				&format!(
+					"{}/repos/{}/{}/git/refs/{}",
+					crate::github_bot::GithubBot::BASE_URL,
+					owner_repo,
+					owner_branch,
+					sha_before_update
+				),
+				&serde_json::json!(UpdateRefPayload {
+					sha: (&created_commit.sha).to_owned()
+				}),
+			)
+			.await?;
+
+		created_commit.sha
+	};
 
 	Ok(updated_sha)
 }
