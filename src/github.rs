@@ -25,6 +25,8 @@ pub struct PullRequest {
 pub struct TreeObject<'a> {
 	pub path: &'a str,
 	pub content: String,
+	// file mode in the Linux format as a string e.g. "100644"
+	pub mode: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]

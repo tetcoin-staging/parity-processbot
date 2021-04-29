@@ -3,6 +3,7 @@ use rocksdb::DB;
 use snafu::ResultExt;
 use std::fs;
 use std::io;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use crate::{
@@ -247,6 +248,10 @@ async fn update_companion_repository(
 						Ok(TreeObject {
 							path,
 							content: fs::read_to_string(path)?,
+							mode: format!(
+								"{:o}",
+								fs::metadata(path)?.permissions().mode()
+							),
 						})
 					})
 					.collect::<Result<Vec<TreeObject>, io::Error>>()
