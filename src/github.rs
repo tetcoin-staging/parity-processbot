@@ -35,7 +35,7 @@ pub struct CreatedTree {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CreatedCommitPayload<'a> {
+pub struct CreateCommitPayload<'a> {
 	pub message: &'a str,
 	pub tree: String,
 }

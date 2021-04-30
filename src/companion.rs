@@ -24,11 +24,8 @@ async fn update_companion_repository(
 	let secrets_to_hide = [token.as_str()];
 	let secrets_to_hide = Some(&secrets_to_hide[..]);
 
-	let authenticated_api_prefix = format!(
-		"https://x-access-token:{}@{}",
-		&token,
-		crate::github_bot::GithubBot::BASE_URL,
-	);
+	let authenticated_api_prefix =
+		format!("https://x-access-token:{}@api.github.com", &token,);
 	let owner_repository_domain =
 		format!("github.com/{}/{}.git", owner, owner_repo);
 	let owner_remote_address = format!(
@@ -280,7 +277,7 @@ async fn update_companion_repository(
 					"{}/repos/{}/{}/git/commits",
 					&authenticated_api_prefix, owner_repo, owner_branch,
 				),
-				&serde_json::json!(CreatedCommitPayload {
+				&serde_json::json!(CreateCommitPayload {
 					message: "merge master branch and update Substrate",
 					tree: created_tree.sha
 				}),
