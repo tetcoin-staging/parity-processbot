@@ -24,6 +24,11 @@ async fn update_companion_repository(
 	let secrets_to_hide = [token.as_str()];
 	let secrets_to_hide = Some(&secrets_to_hide[..]);
 
+	let authenticated_api_prefix = format!(
+		"https://x-access-token:{}@{}",
+		&token,
+		crate::github_bot::GithubBot::BASE_URL,
+	);
 	let owner_repository_domain =
 		format!("github.com/{}/{}.git", owner, owner_repo);
 	let owner_remote_address = format!(
@@ -248,9 +253,7 @@ async fn update_companion_repository(
 			.jwt_post(
 				&format!(
 					"{}/repos/{}/{}/git/trees",
-					crate::github_bot::GithubBot::BASE_URL,
-					owner_repo,
-					owner_branch,
+					&authenticated_api_prefix, owner_repo, owner_branch,
 				),
 				&serde_json::json!(changed_files
 					.iter()
@@ -275,12 +278,10 @@ async fn update_companion_repository(
 			.jwt_post(
 				&format!(
 					"{}/repos/{}/{}/git/commits",
-					crate::github_bot::GithubBot::BASE_URL,
-					owner_repo,
-					owner_branch,
+					&authenticated_api_prefix, owner_repo, owner_branch,
 				),
 				&serde_json::json!(CreatedCommitPayload {
-					message: "merge master branch and update sp-io",
+					message: "merge master branch and update Substrate",
 					tree: created_tree.sha
 				}),
 			)
@@ -291,7 +292,7 @@ async fn update_companion_repository(
 			.jwt_patch(
 				&format!(
 					"{}/repos/{}/{}/git/refs/{}",
-					crate::github_bot::GithubBot::BASE_URL,
+					&authenticated_api_prefix,
 					owner_repo,
 					owner_branch,
 					sha_before_update
