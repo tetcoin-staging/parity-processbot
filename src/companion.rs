@@ -250,7 +250,7 @@ async fn update_companion_repository(
 
 		let created_tree: CreatedTree = github_bot
 			.client
-			.jwt_post(
+			.post(
 				&format!(
 					"{}/repos/{}/{}/git/trees",
 					&authenticated_api_prefix, owner_repo, owner_branch,
@@ -275,7 +275,7 @@ async fn update_companion_repository(
 
 		let created_commit: CreatedCommit = github_bot
 			.client
-			.jwt_post(
+			.post(
 				&format!(
 					"{}/repos/{}/{}/git/commits",
 					&authenticated_api_prefix, owner_repo, owner_branch,
@@ -289,7 +289,7 @@ async fn update_companion_repository(
 
 		github_bot
 			.client
-			.jwt_patch(
+			.patch(
 				&format!(
 					"{}/repos/{}/{}/git/refs/{}",
 					&authenticated_api_prefix,
