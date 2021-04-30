@@ -214,7 +214,7 @@ async fn update_companion_repository(
 	// Check if any files have changed by the previous commands; if so, push the changes
 	let changed_files_output = run_cmd_with_output(
 		"git",
-		&["diff", "--name-only", &sha_before_update],
+		&["diff", "--name-only", sha_before_update],
 		&repo_dir,
 		CommandMessage::Configured(CommandMessageConfiguration {
 			secrets_to_hide,
@@ -230,7 +230,7 @@ async fn update_companion_repository(
 	let updated_sha = if changed_files.is_empty() {
 		run_cmd(
 			"git",
-			&["reset", "--hard", &sha_before_update],
+			&["reset", "--hard", sha_before_update],
 			&repo_dir,
 			CommandMessage::Configured(CommandMessageConfiguration {
 				secrets_to_hide,
@@ -249,24 +249,29 @@ async fn update_companion_repository(
 				&format!(
 					"{}/repos/{}/{}/git/trees",
 					crate::github_bot::GithubBot::BASE_URL,
+					owner,
 					owner_repo,
-					owner_branch,
 				),
-				&serde_json::json!(changed_files
-					.iter()
-					.map(|path| {
-						let full_path = format!("{}/{}", &repo_dir, path);
-						Ok(TreeObject {
-							path,
-							content: fs::read_to_string(&full_path)?,
-							mode: format!(
-								"{:o}",
-								fs::metadata(&full_path)?.permissions().mode()
-							),
+				&serde_json::json!(CreateTreePayload {
+					base_tree: sha_before_update,
+					tree: changed_files
+						.iter()
+						.map(|path| {
+							let full_path = format!("{}/{}", &repo_dir, path);
+							Ok(TreeObject {
+								path,
+								content: fs::read_to_string(&full_path)?,
+								mode: format!(
+									"{:o}",
+									fs::metadata(&full_path)?
+										.permissions()
+										.mode()
+								),
+							})
 						})
-					})
-					.collect::<Result<Vec<TreeObject>, io::Error>>()
-					.context(StdIO)?),
+						.collect::<Result<Vec<TreeObject>, io::Error>>()
+						.context(StdIO)?
+				}),
 			)
 			.await?;
 
@@ -276,8 +281,8 @@ async fn update_companion_repository(
 				&format!(
 					"{}/repos/{}/{}/git/commits",
 					crate::github_bot::GithubBot::BASE_URL,
+					owner,
 					owner_repo,
-					owner_branch,
 				),
 				&serde_json::json!(CreateCommitPayload {
 					message: "merge master branch and update Substrate",
@@ -292,8 +297,8 @@ async fn update_companion_repository(
 				&format!(
 					"{}/repos/{}/{}/git/refs/{}",
 					crate::github_bot::GithubBot::BASE_URL,
+					owner,
 					owner_repo,
-					owner_branch,
 					sha_before_update
 				),
 				&serde_json::json!(UpdateRefPayload {
