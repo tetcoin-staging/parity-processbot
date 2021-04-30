@@ -138,6 +138,7 @@ async fn update_companion_repository(
 	.await?;
 	let sha_before_update =
 		String::from_utf8_lossy(&(&sha_before_update_output).stdout[..]);
+	let sha_before_update = sha_before_update.trim();
 
 	let owner_remote = "origin";
 	let owner_branch = "master";
@@ -222,7 +223,7 @@ async fn update_companion_repository(
 	)
 	.await?;
 	let changed_files =
-		String::from_utf8_lossy(&(&sha_before_update_output).stdout[..]);
+		String::from_utf8_lossy(&(&changed_files_output).stdout[..]);
 	let changed_files = changed_files.trim().split('\n').collect::<Vec<&str>>();
 
 	let updated_sha = if changed_files.is_empty() {
