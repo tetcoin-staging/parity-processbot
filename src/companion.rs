@@ -295,11 +295,11 @@ async fn update_companion_repository(
 			.client
 			.patch(
 				&format!(
-					"{}/repos/{}/{}/git/refs/{}",
+					"{}/repos/{}/{}/git/refs/heads/{}",
 					crate::github_bot::GithubBot::BASE_URL,
-					owner,
-					owner_repo,
-					sha_before_update
+					contributor,
+					contributor_repo,
+					contributor_branch
 				),
 				&serde_json::json!(UpdateRefPayload {
 					sha: (&created_commit.sha).to_owned()
