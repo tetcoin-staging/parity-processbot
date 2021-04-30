@@ -183,7 +183,15 @@ async fn update_companion_repository(
 	// `cargo update` should normally make changes to the lockfile with the latest SHAs from Github
 	run_cmd(
 		"cargo",
-		&["update", "-vp", "sp-io"],
+		&[
+			"update",
+			"-vp",
+			if owner_repo == "companion-for-processbot-staging" {
+				"main-for-processbot-staging"
+			} else {
+				"sp-io"
+			},
+		],
 		&repo_dir,
 		CommandMessage::Configured(CommandMessageConfiguration {
 			secrets_to_hide,
