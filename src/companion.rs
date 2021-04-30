@@ -225,6 +225,7 @@ async fn update_companion_repository(
 	let changed_files =
 		String::from_utf8_lossy(&(&changed_files_output).stdout[..]);
 	let changed_files = changed_files.trim().split('\n').collect::<Vec<&str>>();
+	log::info!("Changed files: {:?}", changed_files);
 
 	let updated_sha = if changed_files.is_empty() {
 		run_cmd(
@@ -254,12 +255,13 @@ async fn update_companion_repository(
 				&serde_json::json!(changed_files
 					.iter()
 					.map(|path| {
+						let full_path = format!("{}/{}", &repo_dir, path);
 						Ok(TreeObject {
 							path,
-							content: fs::read_to_string(path)?,
+							content: fs::read_to_string(&full_path)?,
 							mode: format!(
 								"{:o}",
-								fs::metadata(path)?.permissions().mode()
+								fs::metadata(&full_path)?.permissions().mode()
 							),
 						})
 					})
