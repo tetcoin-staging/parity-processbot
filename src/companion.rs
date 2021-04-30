@@ -19,7 +19,6 @@ async fn update_companion_repository(
 	contributor: &str,
 	contributor_repo: &str,
 	contributor_branch: &str,
-	qualified_ref: String,
 ) -> Result<String> {
 	let token = github_bot.client.auth_key().await?;
 	let secrets_to_hide = [token.as_str()];
@@ -296,11 +295,11 @@ async fn update_companion_repository(
 			.client
 			.patch(
 				&format!(
-					"{}/repos/{}/{}/git/refs/{}",
+					"{}/repos/{}/{}/git/refs/heads/{}",
 					crate::github_bot::GithubBot::BASE_URL,
-					owner,
-					owner_repo,
-					qualified_ref
+					contributor,
+					contributor_repo,
+					contributor_branch
 				),
 				&serde_json::json!(UpdateRefPayload {
 					sha: (&created_commit.sha).to_owned()
@@ -370,7 +369,6 @@ async fn perform_companion_update(
 	let comp_pr = github_bot.pull_request(&owner, &repo, number).await?;
 
 	if let PullRequest {
-		number,
 		head:
 			Some(Head {
 				ref_field: Some(contributor_branch),
@@ -396,7 +394,6 @@ async fn perform_companion_update(
 			&contributor,
 			&contributor_repo,
 			&contributor_branch,
-			format!("pull/{}/head", number),
 		)
 		.await?;
 
