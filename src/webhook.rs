@@ -296,7 +296,7 @@ async fn get_latest_statuses_state(
 		}
 		if latest_statuses
 			.get(&s.context)
-			.map(|(prev_id, _)| prev_id < &(&s).id)
+			.map(|(prev_id, _)| prev_id < &s.id)
 			.unwrap_or(true)
 		{
 			latest_statuses.insert(s.context, (s.id, s.state));
@@ -345,7 +345,7 @@ async fn get_latest_checks_state(
 	for c in checks.check_runs {
 		if latest_checks
 			.get(&c.name)
-			.map(|(prev_id, _, _)| prev_id < &(&c).id)
+			.map(|(prev_id, _, _)| prev_id < &c.id)
 			.unwrap_or(true)
 		{
 			latest_checks.insert(c.name, (c.id, c.status, c.conclusion));
@@ -435,7 +435,7 @@ async fn checks_and_status(
 													.context(Db)?;
 												update_companion(
 													github_bot, &repo_name,
-													&pr, db,
+													&pr, db, bot_config,
 												)
 												.await
 											}
@@ -519,41 +519,17 @@ async fn handle_comment(
 		)
 		.await??;
 
-		if ready_to_merge(github_bot, owner, &repo_name, pr).await? {
-			prepare_to_merge(
-				github_bot,
-				owner,
-				&repo_name,
-				pr.number,
-				&pr.html_url,
-			)
-			.await?;
-
-			merge(
-				github_bot,
-				owner,
-				&repo_name,
-				pr,
-				bot_config,
-				requested_by,
-				None,
-			)
-			.await??;
-			update_companion(github_bot, &repo_name, pr, db).await?;
-		} else {
-			let pr_head_sha = pr.head_sha()?;
-			wait_to_merge(
-				github_bot,
-				owner,
-				&repo_name,
-				pr.number,
-				&pr.html_url,
-				requested_by,
-				pr_head_sha,
-				db,
-			)
-			.await?;
-		}
+		merge_or_wait(
+			github_bot,
+			owner,
+			&repo_name,
+			pr,
+			bot_config,
+			requested_by,
+			db,
+			pr.head_sha()?,
+		)
+		.await?;
 	} else if body.to_lowercase().trim()
 		== AUTO_MERGE_FORCE.to_lowercase().trim()
 	{
@@ -594,7 +570,7 @@ async fn handle_comment(
 			None,
 		)
 		.await??;
-		update_companion(github_bot, &repo_name, &pr, db).await?;
+		update_companion(github_bot, &repo_name, &pr, db, bot_config).await?;
 	} else if body.to_lowercase().trim()
 		== AUTO_MERGE_CANCEL.to_lowercase().trim()
 	{
@@ -1638,4 +1614,52 @@ async fn handle_error(e: Error, state: &AppState) {
 			}
 		},
 	}
+}
+
+pub async fn merge_or_wait(
+	github_bot: &GithubBot,
+	owner: &str,
+	repo_name: &str,
+	pr: &PullRequest,
+	bot_config: &BotConfig,
+	requested_by: &str,
+	db: &DB,
+	head_sha: &str,
+) -> Result<()> {
+	let was_merged = if ready_to_merge(github_bot, owner, repo_name, pr).await?
+	{
+		if let Ok(_) = merge(
+			github_bot,
+			owner,
+			repo_name,
+			pr,
+			bot_config,
+			requested_by,
+			None,
+		)
+		.await
+		{
+			true
+		} else {
+			false
+		}
+	} else {
+		false
+	};
+
+	if !was_merged {
+		wait_to_merge(
+			github_bot,
+			owner,
+			&repo_name,
+			pr.number,
+			&pr.html_url,
+			requested_by,
+			head_sha,
+			db,
+		)
+		.await?;
+	}
+
+	Ok(())
 }
