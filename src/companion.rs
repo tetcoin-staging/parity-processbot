@@ -252,9 +252,9 @@ async fn update_companion_repository(
 					owner,
 					owner_repo,
 				),
-				&serde_json::json!(CreateTreePayload {
-					base_tree: sha_before_update,
-					tree: changed_files
+				&serde_json::json!({
+					"base_tree": sha_before_update,
+					"tree": changed_files
 						.iter()
 						.map(|path| {
 							let full_path = format!("{}/{}", &repo_dir, path);
@@ -284,26 +284,82 @@ async fn update_companion_repository(
 					owner,
 					owner_repo,
 				),
-				&serde_json::json!(CreateCommitPayload {
-					message: "merge master branch and update Substrate",
-					tree: created_tree.sha
+				&serde_json::json!({
+					"message": "merge master branch and update Substrate",
+					"tree": created_tree.sha
 				}),
 			)
 			.await?;
 
+		// Github offers no way to update a ref on a fork
+		// See https://github.community/t/how-to-update-forks-pull-request-head-from-the-github-api/177649
+		// Therefore
+		// - Create a ref with the validated commit
+		// - Pull it and push it into the PR
+		// - Delete the ref after
+
+		let ref_name = format!("refs/heads/processbot-{}", chrono::Utc::now());
+
 		github_bot
 			.client
-			.patch(
+			.post(
 				&format!(
-					"{}/repos/{}/{}/git/refs/heads/{}",
+					"{}/repos/{}/{}/git/refs",
 					crate::github_bot::GithubBot::BASE_URL,
-					contributor,
-					contributor_repo,
-					contributor_branch
+					owner,
+					owner_repo,
 				),
-				&serde_json::json!(UpdateRefPayload {
-					sha: (&created_commit.sha).to_owned()
+				&serde_json::json!({
+					"ref": &ref_name,
+					"sha": &created_commit.sha
 				}),
+			)
+			.await?;
+
+		run_cmd(
+			"git",
+			&["reset", "--hard", sha_before_update],
+			&repo_dir,
+			CommandMessage::Configured(CommandMessageConfiguration {
+				secrets_to_hide,
+				are_errors_silenced: false,
+			}),
+		)
+		.await?;
+
+		run_cmd(
+			"git",
+			&["pull", "--ff-only", "origin", &ref_name],
+			&repo_dir,
+			CommandMessage::Configured(CommandMessageConfiguration {
+				secrets_to_hide,
+				are_errors_silenced: false,
+			}),
+		)
+		.await?;
+
+		run_cmd(
+			"git",
+			&["push", contributor, contributor_branch],
+			&repo_dir,
+			CommandMessage::Configured(CommandMessageConfiguration {
+				secrets_to_hide,
+				are_errors_silenced: false,
+			}),
+		)
+		.await?;
+
+		github_bot
+			.client
+			.delete(
+				&format!(
+					"{}/repos/{}/{}/git/refs/{}",
+					crate::github_bot::GithubBot::BASE_URL,
+					owner,
+					owner_repo,
+					&ref_name
+				),
+				&serde_json::json!({}),
 			)
 			.await?;
 

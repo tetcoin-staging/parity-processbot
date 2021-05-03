@@ -30,29 +30,12 @@ pub struct TreeObject<'a> {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CreateTreePayload<'a> {
-	pub base_tree: &'a str,
-	pub tree: Vec<TreeObject<'a>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreatedTree {
 	pub sha: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CreateCommitPayload<'a> {
-	pub message: &'a str,
-	pub tree: String,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CreatedCommit {
-	pub sha: String,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct UpdateRefPayload {
 	pub sha: String,
 }
 
