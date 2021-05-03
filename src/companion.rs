@@ -299,6 +299,10 @@ async fn update_companion_repository(
 		// - Delete the ref after
 
 		let ref_name = format!("refs/heads/processbot-{}", chrono::Utc::now());
+		let ref_name = ref_name
+			.replace(' ', "-")
+			.replace('.', "-")
+			.replace(':', "-");
 
 		github_bot
 			.client
