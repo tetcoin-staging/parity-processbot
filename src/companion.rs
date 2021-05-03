@@ -304,7 +304,7 @@ async fn update_companion_repository(
 			.replace('.', "-")
 			.replace(':', "-");
 
-		github_bot
+		let _: CreatedRef = github_bot
 			.client
 			.post(
 				&format!(

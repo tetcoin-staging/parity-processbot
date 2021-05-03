@@ -21,7 +21,7 @@ pub struct PullRequest {
 	pub repository: Option<Repository>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct TreeObject<'a> {
 	pub path: &'a str,
 	pub content: String,
@@ -29,14 +29,20 @@ pub struct TreeObject<'a> {
 	pub mode: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct CreatedTree {
 	pub sha: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct CreatedCommit {
 	pub sha: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreatedRef {
+	#[serde(rename = "ref")]
+	pub ref_field: Option<String>,
 }
 
 impl HasIssueDetails for PullRequest {
