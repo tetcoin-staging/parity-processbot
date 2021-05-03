@@ -21,12 +21,18 @@ pub struct PullRequest {
 	pub repository: Option<Repository>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TreeObject<'a> {
 	pub path: &'a str,
 	pub content: String,
 	// file mode in the Linux format as a string e.g. "100644"
 	pub mode: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CreateTreePayload<'a> {
+	pub base_tree: &'a str,
+	pub tree: Vec<TreeObject<'a>>,
 }
 
 #[derive(Deserialize)]

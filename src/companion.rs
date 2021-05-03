@@ -7,9 +7,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use crate::{
-	cmd::*, error::*, github::*, github_bot::GithubBot, webhook::wait_to_merge,
-	Result, COMPANION_LONG_REGEX, COMPANION_PREFIX_REGEX,
-	COMPANION_SHORT_REGEX, PR_HTML_URL_REGEX,
+	cmd::*, error::*, github::*, github_bot::GithubBot, results,
+	webhook::wait_to_merge, Result, COMPANION_LONG_REGEX,
+	COMPANION_PREFIX_REGEX, COMPANION_SHORT_REGEX, PR_HTML_URL_REGEX,
 };
 
 async fn update_companion_repository(
@@ -252,9 +252,9 @@ async fn update_companion_repository(
 					owner,
 					owner_repo,
 				),
-				&serde_json::json!({
-					"base_tree": sha_before_update,
-					"tree": changed_files
+				&serde_json::json!(CreateTreePayload {
+					base_tree: sha_before_update,
+					tree: changed_files
 						.iter()
 						.map(|path| {
 							let full_path = format!("{}/{}", &repo_dir, path);
@@ -320,40 +320,40 @@ async fn update_companion_repository(
 			)
 			.await?;
 
-		run_cmd(
-			"git",
-			&["reset", "--hard", sha_before_update],
-			&repo_dir,
-			CommandMessage::Configured(CommandMessageConfiguration {
-				secrets_to_hide,
-				are_errors_silenced: false,
-			}),
-		)
-		.await?;
+		let ref_push = results!(
+			run_cmd(
+				"git",
+				&["reset", "--hard", sha_before_update],
+				&repo_dir,
+				CommandMessage::Configured(CommandMessageConfiguration {
+					secrets_to_hide,
+					are_errors_silenced: false,
+				}),
+			)
+			.await,
+			run_cmd(
+				"git",
+				&["pull", "--ff-only", "origin", &ref_name],
+				&repo_dir,
+				CommandMessage::Configured(CommandMessageConfiguration {
+					secrets_to_hide,
+					are_errors_silenced: false,
+				}),
+			)
+			.await,
+			run_cmd(
+				"git",
+				&["push", contributor, contributor_branch],
+				&repo_dir,
+				CommandMessage::Configured(CommandMessageConfiguration {
+					secrets_to_hide,
+					are_errors_silenced: false,
+				}),
+			)
+			.await
+		);
 
-		run_cmd(
-			"git",
-			&["pull", "--ff-only", "origin", &ref_name],
-			&repo_dir,
-			CommandMessage::Configured(CommandMessageConfiguration {
-				secrets_to_hide,
-				are_errors_silenced: false,
-			}),
-		)
-		.await?;
-
-		run_cmd(
-			"git",
-			&["push", contributor, contributor_branch],
-			&repo_dir,
-			CommandMessage::Configured(CommandMessageConfiguration {
-				secrets_to_hide,
-				are_errors_silenced: false,
-			}),
-		)
-		.await?;
-
-		github_bot
+		let _: Result<()> = github_bot
 			.client
 			.delete(
 				&format!(
@@ -365,7 +365,11 @@ async fn update_companion_repository(
 				),
 				&serde_json::json!({}),
 			)
-			.await?;
+			.await;
+
+		if let Err(e) = ref_push {
+			return Err(e);
+		};
 
 		created_commit.sha
 	};
