@@ -229,7 +229,7 @@ async fn update_companion_repository(
 	let changed_files = changed_files.trim().split('\n').collect::<Vec<&str>>();
 	log::info!("Changed files: {:?}", changed_files);
 
-	let updated_sha = if changed_files.is_empty() {
+	if changed_files.is_empty() {
 		run_cmd(
 			"git",
 			&["reset", "--hard", sha_before_update],
@@ -241,7 +241,7 @@ async fn update_companion_repository(
 		)
 		.await?;
 
-		sha_before_update.to_string()
+		Ok(sha_before_update.to_string())
 	} else {
 		// Push the changes through the Github API so that commits are verified
 
@@ -323,7 +323,7 @@ async fn update_companion_repository(
 			)
 			.await?;
 
-		let ref_push = results!(
+		let repo_cmds = results!(
 			run_cmd(
 				"git",
 				&["reset", "--hard", sha_before_update],
@@ -337,6 +337,16 @@ async fn update_companion_repository(
 			run_cmd(
 				"git",
 				&["pull", "--ff-only", "origin", &ref_name],
+				&repo_dir,
+				CommandMessage::Configured(CommandMessageConfiguration {
+					secrets_to_hide,
+					are_errors_silenced: false,
+				}),
+			)
+			.await,
+			run_cmd_with_output(
+				"git",
+				&["rev-parse", "HEAD"],
 				&repo_dir,
 				CommandMessage::Configured(CommandMessageConfiguration {
 					secrets_to_hide,
@@ -370,14 +380,12 @@ async fn update_companion_repository(
 			)
 			.await;
 
-		if let Err(e) = ref_push {
-			return Err(e);
-		};
-
-		created_commit.sha
-	};
-
-	Ok(updated_sha)
+		repo_cmds.map(|(_, _, sha_output, _)| {
+			String::from_utf8_lossy(&sha_output.stdout[..])
+				.trim()
+				.to_string()
+		})
+	}
 }
 
 fn companion_parse(body: &str) -> Option<(String, String, String, i64)> {
