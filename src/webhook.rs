@@ -1621,28 +1621,12 @@ pub async fn merge_or_wait(
 		None
 	};
 
-	match merge_attempt {
-		Some(Ok(())) => {
-			update_companion(github_bot, &repo_name, &pr, db, bot_config)
-				.await?;
+	match (mode, merge_attempt) {
+		(_, Some(Ok(()))) => {
+			update_companion(github_bot, &repo_name, &pr, db, bot_config).await
 		}
-		Some(Err(e)) => match mode {
-			MergeWaitMode::CanWait => {
-				wait_to_merge(
-					github_bot,
-					owner,
-					&repo_name,
-					pr.number,
-					&pr.html_url,
-					requested_by,
-					head_sha,
-					db,
-				)
-				.await?;
-			}
-			MergeWaitMode::DoNotWait => return Err(e),
-		},
-		None => {
+		(MergeWaitMode::DoNotWait, Some(Err(e))) => Err(e),
+		_ => {
 			wait_to_merge(
 				github_bot,
 				owner,
@@ -1653,9 +1637,7 @@ pub async fn merge_or_wait(
 				head_sha,
 				db,
 			)
-			.await?;
+			.await
 		}
 	}
-
-	Ok(())
 }
