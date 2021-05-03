@@ -252,9 +252,9 @@ async fn update_companion_repository(
 					owner,
 					owner_repo,
 				),
-				&serde_json::json!(CreateTreePayload {
-					base_tree: sha_before_update,
-					tree: changed_files
+				&serde_json::json!({
+					"base_tree": sha_before_update,
+					"tree": changed_files
 						.iter()
 						.map(|path| {
 							let full_path = format!("{}/{}", &repo_dir, path);
@@ -286,7 +286,8 @@ async fn update_companion_repository(
 				),
 				&serde_json::json!({
 					"message": "merge master branch and update Substrate",
-					"tree": created_tree.sha
+					"tree": created_tree.sha,
+					"parents": vec![sha_before_update],
 				}),
 			)
 			.await?;
@@ -357,7 +358,7 @@ async fn update_companion_repository(
 			.client
 			.delete(
 				&format!(
-					"{}/repos/{}/{}/git/refs/{}",
+					"{}/repos/{}/{}/git/{}",
 					crate::github_bot::GithubBot::BASE_URL,
 					owner,
 					owner_repo,
