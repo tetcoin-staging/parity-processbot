@@ -1,3 +1,4 @@
+use async_recursion::async_recursion;
 use regex::RegexBuilder;
 use rocksdb::DB;
 use snafu::ResultExt;
@@ -7,9 +8,10 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use crate::{
-	cmd::*, config::BotConfig, error::*, github::*, github_bot::GithubBot,
-	results, webhook::merge_or_wait, Result, COMPANION_LONG_REGEX,
-	COMPANION_PREFIX_REGEX, COMPANION_SHORT_REGEX, PR_HTML_URL_REGEX,
+	cmd::*, config::BotConfig, constants::*, error::*, github::*,
+	github_bot::GithubBot, results, webhook::merge_or_wait, Result,
+	COMPANION_LONG_REGEX, COMPANION_PREFIX_REGEX, COMPANION_SHORT_REGEX,
+	PR_HTML_URL_REGEX,
 };
 
 async fn update_companion_repository(
@@ -423,6 +425,7 @@ fn companion_parse_short(body: &str) -> Option<(String, String, String, i64)> {
 	Some((html_url, owner, repo, number))
 }
 
+#[async_recursion]
 async fn perform_companion_update(
 	github_bot: &GithubBot,
 	db: &DB,
@@ -465,6 +468,7 @@ async fn perform_companion_update(
 
 		log::info!("Companion updated; waiting for checks on {}", html_url);
 		merge_or_wait(
+			MergeWaitMode::CanWait,
 			github_bot,
 			owner,
 			repo,
